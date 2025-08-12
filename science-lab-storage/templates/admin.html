@@ -1,0 +1,21 @@
+{% extends "layout.html" %}
+{% block content %}
+<h2>Admin Panel - Add Materials</h2>
+<form method="POST">
+    <input type="text" name="name" placeholder="Material Name" required>
+    <input type="number" name="quantity" placeholder="Quantity" required>
+    <label><input type="checkbox" name="consumable"> Consumable</label>
+    <button type="submit">Add</button>
+</form>
+<h2>All Materials</h2>
+<table>
+    <tr><th>Name</th><th>Quantity</th><th>Consumable</th></tr>
+    {% for m in materials %}
+    <tr>
+        <td>{{ m[1] }}</td>
+        <td>{{ m[2] }}</td>
+        <td>{{ "Yes" if m[3] else "No" }}</td>
+    </tr>
+    {% endfor %}
+</table>
+{% endblock %}
