@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Science Lab Storage D1.501</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 40px; background: #f4f6f8; }
+    h1, h2 { text-align: center; }
+    table { border-collapse: collapse; width: 100%; background: white; margin-top: 20px; }
+    th, td { border: 1px solid #ddd; padding: 10px; text-align: center; }
+    th { background: #C74368; color: white; }
+    button { padding: 5px 10px; margin: 2px; cursor: pointer; }
+    .checkout-btn { background: #2196F3; color: white; }
+    .return-btn { background: #FF9800; color: white; }
+    .delete-btn { background: red; color: white; }
+    input[type=number] { width: 60px; text-align: center; }
+    #loginSection, #mainSection { max-width: 900px; margin: auto; }
+    #logTable th { background: #333; color: white; }
+    .logout-btn { background: red; color: white; float: right; }
+    .add-section { background: #fff; padding: 15px; margin-top: 20px; border: 1px solid #ccc; }
+    .add-section input, .add-section select { margin: 5px; padding: 5px; }
+  </style>
+</head>
+<body>
+
+<div id="loginSection">
+  <h1>🔬 Science Lab Storage D1.501</h1>
+  <h2>Login</h2>
+  <input type="text" id="username" placeholder="Username"><br><br>
+  <input type="password" id="password" placeholder="Password (leave blank for teacher)"><br><br>
+  <button onclick="login()">Login</button>
+</div>
+
+<div id="mainSection" style="display:none;">
+  <h1>🔬 Science Lab Storage D1.501</h1>
+  <button class="logout-btn" onclick="logout()">Logout</button>
+  <h2 id="welcomeMsg"></h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Material</th>
+        <th>Type</th>
+        <th>Available</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody id="materialsTable"></tbody>
+  </table>
+
+  <div id="adminAddSection" class="add-section" style="display:none;">
+    <h3>Add New Material</h3>
+    <input type="text" id="newName" placeholder="Material Name">
+    <select id="newType">
+      <option value="consumable">Consumable</option>
+      <option value="unconsumable">Unconsumable</option>
+    </select>
+    <input type="number" id="newQty" placeholder="Quantity" min="1">
+    <button onclick="addMaterial()">Add Material</button>
+  </div>
+
+  <h2>📜 Transaction Log</h2>
+  <div id="clearLogSection" style="display:none; text-align:center; margin-bottom:10px;">
+    <button onclick="clearLog()" style="background:red;color:white;padding:5px 10px;">Clear Log</button>
+  </div>
+
+  <table id="logTable">
+    <thead>
+      <tr>
+        <th>Date & Time</th>
+        <th>User</th>
+        <th>Material</th>
+        <th>Quantity</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody id="logBody"></tbody>
+  </table>
+</div>
+
+<script>
+  let materials = [
+    { name: "Microscope", type: "unconsumable", available: 5 },
+    { name: "Test Tubes", type: "consumable", available: 100 },
+    { name: "Beaker 250ml", type: "unconsumable", available: 20 },
+    { name: "Litmus Paper", type: "consumable", available: 200 }
+  ];
+  let logs = [];
+  let currentUser = null;
+  let isAdmin = false;
+
+  if(localStorage.getItem("materialsData")) materials = JSON.parse(localStorage.getItem("materialsData"));
+  if(localStorage.getItem("logsData")) logs = JSON.parse(localStorage.getItem("logsData"));
+  if(localStorage.getItem("currentUser")) {
+    currentUser = localStorage.getItem("currentUser");
+    isAdmin = localStorage.getItem("isAdmin") === "true";
+    showMainSection();
+  }
+
+  function saveData() {
+    localStorage.setItem("materialsData", JSON.stringify(materials));
+    localStorage.setItem("logsData", JSON.stringify(logs));
+    if(currentUser) {
+      localStorage.setItem("currentUser", currentUser);
+      localStorage.setItem("isAdmin", isAdmin);
+    }
+  }
+
+  function login() {
+    const user = document.getElementById("username").value.trim();
+    const pass = document.getElementById("password").value.trim();
+
+    if(user === "") { alert("Enter your username."); return; }
+
+    if(user === "admin" && pass === "lab123") {
+      isAdmin = true;
+    } else if(pass !== "") {
+      alert("Invalid username or password.");
+      return;
+    } else {
+      isAdmin = false;
+    }
+
+    currentUser = user;
+    saveData();
+    showMainSection();
+  }
+
+  function logout() {
+    currentUser = null;
+    isAdmin = false;
+    localStorage.removeItem("currentUser");
+    localStorage.removeItem("isAdmin");
+    document.getElementById("loginSection").style.display = "block";
+    document.getElementById("mainSection").style.display = "none";
+  }
+
+  function showMainSection() {
+    document.getElementById("loginSection").style.display = "none";
+    document.getElementById("mainSection").style.display = "block";
+    document.getElementById("welcomeMsg").innerText = `Welcome, ${currentUser} ${isAdmin ? "(Admin)" : ""}`;
+    document.getElementById("adminAddSection").style.display = isAdmin ? "block" : "none";
+    document.getElementById("clearLogSection").style.display = isAdmin ? "block" : "none";
+    renderTable();
+    renderLog();
+  }
+
+  function renderTable() {
+    const tableBody = document.getElementById("materialsTable");
+    tableBody.innerHTML = "";
+    materials.forEach((item, index) => {
+      let actionButtons = `
+        <input type="number" id="qty-${index}" min="1" placeholder="Qty">
+        <button class="checkout-btn" onclick="checkOut(${index})">Check Out</button>
+        ${item.type === "unconsumable" ? `<button class="return-btn" onclick="returnItem(${index})">Return</button>` : ""}
+      `;
+      if(isAdmin) {
+        actionButtons += `<button class="delete-btn" onclick="deleteMaterial(${index})">Delete</button>`;
+      }
+      tableBody.innerHTML += `
+        <tr>
+          <td>${item.name}</td>
+          <td>${item.type}</td>
+          <td>${item.available}</td>
+          <td>${actionButtons}</td>
+        </tr>
+      `;
+    });
+  }
+
+  function renderLog() {
+    const logBody = document.getElementById("logBody");
+    logBody.innerHTML = "";
+    logs.forEach(log => {
+      logBody.innerHTML += `
+        <tr>
+          <td>${log.date}</td>
+          <td>${log.user}</td>
+          <td>${log.item}</td>
+          <td>${log.qty}</td>
+          <td>${log.action}</td>
+        </tr>
+      `;
+    });
+  }
+
+  function addLog(item, qty, action) {
+    logs.push({
+      date: new Date().toLocaleString(),
+      user: currentUser,
+      item: item,
+      qty: qty,
+      action: action
+    });
+    saveData();
+    renderLog();
+  }
+
+  function checkOut(index) {
+    const qty = parseInt(document.getElementById(`qty-${index}`).value);
+    if(isNaN(qty) || qty <= 0) { alert("Enter a valid quantity."); return; }
+    if(qty > materials[index].available) { alert("Not enough stock."); return; }
+    materials[index].available -= qty;
+    addLog(materials[index].name, qty, "Checked Out");
+    saveData();
+    renderTable();
+  }
+
+  function returnItem(index) {
+    const qty = parseInt(document.getElementById(`qty-${index}`).value);
+    if(isNaN(qty) || qty <= 0) { alert("Enter a valid quantity."); return; }
+    materials[index].available += qty;
+    addLog(materials[index].name, qty, "Returned");
+    saveData();
+    renderTable();
+  }
+
+  function addMaterial() {
+    const name = document.getElementById("newName").value.trim();
+    const type = document.getElementById("newType").value;
+    const qty = parseInt(document.getElementById("newQty").value);
+    if(name === "" || isNaN(qty) || qty <= 0) {
+      alert("Fill out all fields correctly.");
+      return;
+    }
+    materials.push({ name: name, type: type, available: qty });
+    addLog(name, qty, "Added Material");
+    saveData();
+    renderTable();
+    document.getElementById("newName").value = "";
+    document.getElementById("newQty").value = "";
+  }
+
+  function deleteMaterial(index) {
+    if(confirm(`Delete ${materials[index].name}?`)) {
+      addLog(materials[index].name, materials[index].available, "Deleted Material");
+      materials.splice(index, 1);
+      saveData();
+      renderTable();
+    }
+  }
+
+  function clearLog() {
+    if(confirm("Are you sure you want to clear all transaction records? This cannot be undone.")) {
+      logs = [];
+      saveData();
+      renderLog();
+      alert("Transaction log cleared.");
+    }
+  }
+</script>
+
+</body>
+</html>
